@@ -3,17 +3,32 @@ const fs = require("fs");
 
 // read files
 const emails = fs.readFileSync("emails.txt", "utf-8").split("\n");
-const subject = fs.readFileSync("subject.txt", "utf-8").trim();
-const message = fs.readFileSync("message.txt", "utf-8").trim();
+const subjects = fs.readFileSync("subject.txt", "utf-8").split("\n");
+
+// multiple messages
+const messages = [
+  fs.readFileSync("message.txt", "utf-8"),
+  fs.readFileSync("message2.txt", "utf-8")
+];
 
 // sent log
 const sent = fs.existsSync("sent.txt")
   ? fs.readFileSync("sent.txt", "utf-8").split("\n")
   : [];
 
-// delay random (anti spam)
+// random subject
+function getRandomSubject() {
+  return subjects[Math.floor(Math.random() * subjects.length)].trim();
+}
+
+// random message
+function getRandomMessage() {
+  return messages[Math.floor(Math.random() * messages.length)];
+}
+
+// random delay (20–60 sec)
 function randomDelay() {
-  return Math.floor(Math.random() * (60000 - 20000)) + 20000; // 20–60 sec
+  return Math.floor(Math.random() * (60000 - 20000)) + 20000;
 }
 
 async function sendMail(toEmail) {
@@ -21,13 +36,15 @@ async function sendMail(toEmail) {
     await axios.post(
       "https://api.mailgun.net/v3/mg.clientboost.in/messages",
       new URLSearchParams({
-        from: "Dipanshu Lodhi <postmaster@mg.clientboost.in>",
+        // 🔥 HUMAN NAME + REAL EMAIL
+        from: "Dipanshu Lodhi <hello@clientboost.in>",
 
+        // 🔥 reply system (ImproveMX)
         "h:Reply-To": "hello@clientboost.in",
 
         to: toEmail,
-        subject: subject,
-        text: message,
+        subject: getRandomSubject(),
+        text: getRandomMessage(),
       }),
       {
         auth: {
@@ -39,7 +56,7 @@ async function sendMail(toEmail) {
 
     console.log("✅ Sent:", toEmail);
 
-    // save sent
+    // save sent email
     fs.appendFileSync("sent.txt", toEmail + "\n");
 
   } catch (err) {
@@ -60,7 +77,7 @@ async function start() {
 
     await sendMail(email);
 
-    // 🔥 random delay (anti spam)
+    // ⏳ anti-spam delay
     await new Promise(r => setTimeout(r, randomDelay()));
   }
 }

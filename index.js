@@ -1,34 +1,27 @@
 const axios = require("axios");
 const fs = require("fs");
 
-// safe read
-function readFileSafe(file, fallback = "") {
-  try {
-    const data = fs.readFileSync(file, "utf-8").trim();
-    return data || fallback;
-  } catch {
-    return fallback;
-  }
-}
+// read files (STRICT - no fallback)
+const emails = fs.readFileSync("emails.txt", "utf-8").split("\n");
 
-// read data
-const emails = readFileSafe("emails.txt").split("\n");
-
-const subjects = readFileSafe("subject.txt", "Quick question")
+const subjects = fs.readFileSync("subject.txt", "utf-8")
   .split("\n")
-  .filter(s => s.trim() !== "");
+  .map(s => s.trim())
+  .filter(s => s !== "");
 
 const messages = [
-  readFileSafe("message.txt", "Hi,\nJust a quick question."),
-  readFileSafe("message2.txt", "Hi,\nAre you open to more clients?")
-].filter(m => m.trim() !== "");
+  fs.readFileSync("message.txt", "utf-8").trim(),
+  fs.readFileSync("message2.txt", "utf-8").trim()
+].filter(m => m !== "");
 
 // sent log
-const sent = readFileSafe("sent.txt").split("\n");
+const sent = fs.existsSync("sent.txt")
+  ? fs.readFileSync("sent.txt", "utf-8").split("\n")
+  : [];
 
-// helpers
+// random helpers
 function getRandom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)].trim();
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function randomDelay() {
@@ -40,6 +33,12 @@ async function sendMail(toEmail) {
     const subject = getRandom(subjects);
     const message = getRandom(messages);
 
+    // ❌ agar empty ho to skip
+    if (!subject || !message) {
+      console.log("❌ Skipped (empty content):", toEmail);
+      return;
+    }
+
     await axios.post(
       "https://api.mailgun.net/v3/mg.clientboost.in/messages",
       new URLSearchParams({
@@ -47,7 +46,7 @@ async function sendMail(toEmail) {
         "h:Reply-To": "hello@clientboost.in",
         to: toEmail,
         subject: subject,
-        text: message, // 🔥 NEVER EMPTY NOW
+        text: message,
       }),
       {
         auth: {
@@ -58,6 +57,8 @@ async function sendMail(toEmail) {
     );
 
     console.log("✅ Sent:", toEmail);
+
+    // save sent
     fs.appendFileSync("sent.txt", toEmail + "\n");
 
   } catch (err) {
@@ -76,6 +77,7 @@ async function start() {
     }
 
     await sendMail(email);
+
     await new Promise(r => setTimeout(r, randomDelay()));
   }
 }

@@ -1,32 +1,32 @@
 const axios = require("axios");
 const fs = require("fs");
 
-// read files
-const emails = fs.readFileSync("emails.txt", "utf-8").split("\n");
-const subjects = fs.readFileSync("subject.txt", "utf-8").split("\n");
+// safe file read
+function readFileSafe(file, fallback = "") {
+  try {
+    return fs.readFileSync(file, "utf-8");
+  } catch {
+    return fallback;
+  }
+}
 
-// multiple messages
+// read data
+const emails = readFileSafe("emails.txt").split("\n");
+const subjects = readFileSafe("subject.txt", "Quick question").split("\n");
+
 const messages = [
-  fs.readFileSync("message.txt", "utf-8"),
-  fs.readFileSync("message2.txt", "utf-8")
+  readFileSafe("message.txt", "Hi,\nJust a quick question."),
+  readFileSafe("message2.txt", "Hi,\nAre you open to more clients?")
 ];
 
 // sent log
-const sent = fs.existsSync("sent.txt")
-  ? fs.readFileSync("sent.txt", "utf-8").split("\n")
-  : [];
+const sent = readFileSafe("sent.txt").split("\n");
 
-// random subject
-function getRandomSubject() {
-  return subjects[Math.floor(Math.random() * subjects.length)].trim();
+// random helpers
+function getRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)].trim();
 }
 
-// random message
-function getRandomMessage() {
-  return messages[Math.floor(Math.random() * messages.length)];
-}
-
-// random delay (20–60 sec)
 function randomDelay() {
   return Math.floor(Math.random() * (60000 - 20000)) + 20000;
 }
@@ -36,15 +36,11 @@ async function sendMail(toEmail) {
     await axios.post(
       "https://api.mailgun.net/v3/mg.clientboost.in/messages",
       new URLSearchParams({
-        // 🔥 HUMAN NAME + REAL EMAIL
         from: "Dipanshu Lodhi <hello@clientboost.in>",
-
-        // 🔥 reply system (ImproveMX)
         "h:Reply-To": "hello@clientboost.in",
-
         to: toEmail,
-        subject: getRandomSubject(),
-        text: getRandomMessage(),
+        subject: getRandom(subjects),
+        text: getRandom(messages),
       }),
       {
         auth: {
@@ -55,12 +51,10 @@ async function sendMail(toEmail) {
     );
 
     console.log("✅ Sent:", toEmail);
-
-    // save sent email
     fs.appendFileSync("sent.txt", toEmail + "\n");
 
   } catch (err) {
-    console.log("❌ Failed:", toEmail);
+    console.log("❌ Failed:", toEmail, err.message);
   }
 }
 
@@ -69,15 +63,12 @@ async function start() {
     email = email.trim();
     if (!email) continue;
 
-    // ❌ skip duplicate
     if (sent.includes(email)) {
       console.log("⏭️ Skipped:", email);
       continue;
     }
 
     await sendMail(email);
-
-    // ⏳ anti-spam delay
     await new Promise(r => setTimeout(r, randomDelay()));
   }
 }

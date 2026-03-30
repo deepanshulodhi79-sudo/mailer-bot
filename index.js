@@ -1,7 +1,7 @@
 const axios = require("axios");
 const fs = require("fs");
 
-// safe file read
+// safe read
 function readFileSafe(file, fallback = "") {
   try {
     return fs.readFileSync(file, "utf-8");
@@ -10,7 +10,7 @@ function readFileSafe(file, fallback = "") {
   }
 }
 
-// read data
+// data read
 const emails = readFileSafe("emails.txt").split("\n");
 const subjects = readFileSafe("subject.txt", "Quick question").split("\n");
 
@@ -22,7 +22,7 @@ const messages = [
 // sent log
 const sent = readFileSafe("sent.txt").split("\n");
 
-// random helpers
+// helpers
 function getRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)].trim();
 }
@@ -36,8 +36,12 @@ async function sendMail(toEmail) {
     await axios.post(
       "https://api.mailgun.net/v3/mg.clientboost.in/messages",
       new URLSearchParams({
-        from: "Dipanshu Lodhi <hello@clientboost.in>",
+        // ✅ FIXED FROM (Mailgun allowed)
+        from: "Dipanshu Lodhi <postmaster@mg.clientboost.in>",
+
+        // ✅ reply idhar aayega (ImproveMX → Gmail)
         "h:Reply-To": "hello@clientboost.in",
+
         to: toEmail,
         subject: getRandom(subjects),
         text: getRandom(messages),
@@ -51,10 +55,12 @@ async function sendMail(toEmail) {
     );
 
     console.log("✅ Sent:", toEmail);
+
+    // save sent
     fs.appendFileSync("sent.txt", toEmail + "\n");
 
   } catch (err) {
-    console.log("❌ Failed:", toEmail, err.message);
+    console.log("❌ Failed:", toEmail, err.response?.data || err.message);
   }
 }
 
@@ -63,12 +69,15 @@ async function start() {
     email = email.trim();
     if (!email) continue;
 
+    // ❌ duplicate skip
     if (sent.includes(email)) {
       console.log("⏭️ Skipped:", email);
       continue;
     }
 
     await sendMail(email);
+
+    // ⏳ delay (anti spam)
     await new Promise(r => setTimeout(r, randomDelay()));
   }
 }

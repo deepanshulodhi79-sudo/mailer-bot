@@ -4,20 +4,24 @@ const fs = require("fs");
 // safe read
 function readFileSafe(file, fallback = "") {
   try {
-    return fs.readFileSync(file, "utf-8");
+    const data = fs.readFileSync(file, "utf-8").trim();
+    return data || fallback;
   } catch {
     return fallback;
   }
 }
 
-// data read
+// read data
 const emails = readFileSafe("emails.txt").split("\n");
-const subjects = readFileSafe("subject.txt", "Quick question").split("\n");
+
+const subjects = readFileSafe("subject.txt", "Quick question")
+  .split("\n")
+  .filter(s => s.trim() !== "");
 
 const messages = [
   readFileSafe("message.txt", "Hi,\nJust a quick question."),
   readFileSafe("message2.txt", "Hi,\nAre you open to more clients?")
-];
+].filter(m => m.trim() !== "");
 
 // sent log
 const sent = readFileSafe("sent.txt").split("\n");
@@ -33,18 +37,17 @@ function randomDelay() {
 
 async function sendMail(toEmail) {
   try {
+    const subject = getRandom(subjects);
+    const message = getRandom(messages);
+
     await axios.post(
       "https://api.mailgun.net/v3/mg.clientboost.in/messages",
       new URLSearchParams({
-        // ✅ FIXED FROM (Mailgun allowed)
         from: "Dipanshu Lodhi <postmaster@mg.clientboost.in>",
-
-        // ✅ reply idhar aayega (ImproveMX → Gmail)
         "h:Reply-To": "hello@clientboost.in",
-
         to: toEmail,
-        subject: getRandom(subjects),
-        text: getRandom(messages),
+        subject: subject,
+        text: message, // 🔥 NEVER EMPTY NOW
       }),
       {
         auth: {
@@ -55,8 +58,6 @@ async function sendMail(toEmail) {
     );
 
     console.log("✅ Sent:", toEmail);
-
-    // save sent
     fs.appendFileSync("sent.txt", toEmail + "\n");
 
   } catch (err) {
@@ -69,15 +70,12 @@ async function start() {
     email = email.trim();
     if (!email) continue;
 
-    // ❌ duplicate skip
     if (sent.includes(email)) {
       console.log("⏭️ Skipped:", email);
       continue;
     }
 
     await sendMail(email);
-
-    // ⏳ delay (anti spam)
     await new Promise(r => setTimeout(r, randomDelay()));
   }
 }

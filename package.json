@@ -1,8 +1,11 @@
 {
-  "name": "mailer",
+  "name": "email-sender",
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
-    "nodemailer": "^6.9.0"
+    "axios": "^1.6.0"
+  },
+  "scripts": {
+    "start": "node index.js"
   }
 }
